@@ -1,5 +1,7 @@
 # Book Club
 
+> ATX Book Club
+
 Standalone voting site for an in-person book club. Ranked-choice ballots + a waiting-room carousel of user-submitted cards.
 
 Originally lived inside the Life project at `https://life-production-a332.up.railway.app/vote`. Extracted to its own Railway project + GitHub repo in April 2026 to decouple from personal systems. The old URL now redirects here.
