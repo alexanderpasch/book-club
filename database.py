@@ -55,6 +55,39 @@ class VoteCard(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class Book(Base):
+    """Ballot candidates. status: 'active' (votable), 'suggested' (awaiting
+    admin approval), 'archived' (retired when a round is reset)."""
+
+    __tablename__ = "books"
+
+    id = Column(Integer, primary_key=True)
+    title = Column(String, nullable=False)
+    author = Column(String, nullable=False)
+    pages = Column(Integer, nullable=True)
+    description = Column(Text, nullable=True)
+    url = Column(String, nullable=True)
+    status = Column(String, nullable=False, default="active", index=True)
+    suggested_by = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class VoteRound(Base):
+    """Frozen snapshot of a completed voting round, written on admin reset.
+
+    snapshot JSON: {label, books, ballots, results, cards, winner}
+    winner/total_ballots duplicated as columns for cheap history listings."""
+
+    __tablename__ = "vote_rounds"
+
+    id = Column(Integer, primary_key=True)
+    label = Column(String, nullable=True)
+    winner = Column(String, nullable=True)
+    total_ballots = Column(Integer, nullable=False, default=0)
+    snapshot = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 def init_db() -> None:
     """Create tables on startup. Idempotent."""
     Base.metadata.create_all(bind=engine)
@@ -332,6 +365,248 @@ def delete_vote_card(card_id: int) -> bool:
         db.delete(card)
         db.commit()
         return True
+    finally:
+        db.close()
+
+
+# ---------------------------------------------------------------------------
+# Books — ballot candidates, suggestions, and round history.
+
+# The list that was hardcoded in the frontend before books moved to the DB.
+# Seeded once so the round in progress at deploy time keeps working.
+LEGACY_BOOKS = [
+    {"title": "America's Constitution: A Biography", "author": "Akhil Reed Amar", "pages": 657, "description": "A comprehensive, entertaining account of what the Constitution says and why it says it, by one of the era's leading constitutional law scholars.", "url": "https://www.goodreads.com/book/show/843764.America_s_Constitution"},
+    {"title": "Americanos", "author": "John Charles Chasteen", "pages": 206, "description": "A vivid, cinematic history of Latin America's wars of independence, from Bolivar and San Martin to lesser-known patriots who shaped nineteen new republics.", "url": "https://www.goodreads.com/book/show/2433911.Americanos"},
+    {"title": "A Sand County Almanac", "author": "Aldo Leopold", "pages": 228, "description": "A landmark of the conservation movement, these essays advocate a 'land ethic' -- a responsible relationship between people and the land they inhabit.", "url": "https://www.goodreads.com/book/show/210404.A_Sand_County_Almanac_and_Sketches_Here_and_There"},
+    {"title": "Whale", "author": "Cheon Myeong-kwan", "pages": 320, "description": "A magical realist Korean novel following three extraordinary women -- one who chases whales, her elephant-whispering daughter, and a one-eyed beekeeper. Shortlisted for the International Booker Prize.", "url": "https://www.goodreads.com/book/show/29382499-whale"},
+    {"title": "Caste", "author": "Isabel Wilkerson", "pages": 496, "description": "Examines American racism as a caste system, drawing parallels with India and Nazi Germany to reveal how hierarchy, exclusion, and purity shape societies.", "url": "https://www.goodreads.com/book/show/51152447-caste"},
+    {"title": "Frederick Douglass: Prophet of Freedom", "author": "David W. Blight", "pages": 912, "description": "The definitive biography of the abolitionist, writer, and orator, drawing on new sources to capture Douglass's extraordinary life. Winner of the 2019 Pulitzer Prize for History.", "url": "https://www.goodreads.com/book/show/38530663-frederick-douglass"},
+    {"title": "The Radicalism of the American Revolution", "author": "Gordon S. Wood", "pages": 447, "description": "Argues the Revolution was far more radical than previously understood, fundamentally transforming American society from monarchy to democracy. Winner of the 1993 Pulitzer Prize.", "url": "https://www.goodreads.com/book/show/6956.The_Radicalism_of_the_American_Revolution"},
+    {"title": "Black Reconstruction in America", "author": "W. E. B. Du Bois", "pages": 746, "description": "A groundbreaking 1935 history that challenged prevailing narratives by centering Black agency during the Civil War and Reconstruction, revealing the era's democratic promise.", "url": "https://www.goodreads.com/book/show/184612.Black_Reconstruction_in_America_1860_1880"},
+    {"title": "Parting the Waters", "author": "Taylor Branch", "pages": 1064, "description": "The first volume of Branch's epic trilogy on MLK and the Civil Rights movement, covering the Montgomery boycott through the 1963 March on Washington. Pulitzer Prize winner.", "url": "https://www.goodreads.com/book/show/99199.Parting_the_Waters"},
+    {"title": "A Clearing in the Distance", "author": "Witold Rybczynski", "pages": 352, "description": "Biography of Frederick Law Olmsted, designer of Central Park and Boston's Emerald Necklace, who was also a journalist whose dispatches on slavery became essential American documents.", "url": "https://www.goodreads.com/book/show/344846.A_Clearing_in_the_Distance"},
+    {"title": "The Great Leveler", "author": "Walter Scheidel", "pages": 504, "description": "Argues that throughout history, only catastrophic violence -- mass warfare, revolution, state collapse, and plague -- has significantly reduced economic inequality.", "url": "https://www.goodreads.com/book/show/31951505-the-great-leveler"},
+    {"title": "Material World", "author": "Ed Conway", "pages": 512, "description": "A vivid account of the six raw materials — sand, salt, iron, copper, oil, and lithium — that underpin modern civilization, tracing them from mine to the products we can't live without.", "url": "https://www.goodreads.com/book/show/125937631-material-world"},
+]
+
+
+def _book_to_dict(b: Book) -> Dict:
+    return {
+        "id": b.id,
+        "title": b.title,
+        "author": b.author,
+        "pages": b.pages,
+        "desc": b.description or "",
+        "url": b.url or "",
+        "status": b.status,
+        "suggested_by": b.suggested_by,
+        "created_at": b.created_at.isoformat() if b.created_at else None,
+    }
+
+
+def seed_books_if_empty() -> int:
+    """Seed the legacy hardcoded ballot once. Idempotent."""
+    db = SessionLocal()
+    try:
+        if db.query(Book).count() > 0:
+            return 0
+        for b in LEGACY_BOOKS:
+            db.add(Book(
+                title=b["title"], author=b["author"], pages=b.get("pages"),
+                description=b.get("description"), url=b.get("url"), status="active",
+            ))
+        db.commit()
+        return len(LEGACY_BOOKS)
+    except Exception as e:
+        db.rollback()
+        logger.error(f"seed_books_if_empty failed: {e}")
+        return 0
+    finally:
+        db.close()
+
+
+def get_books(status: Optional[str] = None) -> List[Dict]:
+    db = SessionLocal()
+    try:
+        q = db.query(Book)
+        if status:
+            q = q.filter(Book.status == status)
+        return [_book_to_dict(b) for b in q.order_by(Book.created_at).all()]
+    finally:
+        db.close()
+
+
+def _find_duplicate_title(db, title: str) -> Optional[Book]:
+    """Case-insensitive title match among non-archived books."""
+    t = title.strip().lower()
+    for b in db.query(Book).filter(Book.status != "archived").all():
+        if b.title.strip().lower() == t:
+            return b
+    return None
+
+
+def add_book(
+    title: str,
+    author: str,
+    pages: Optional[int] = None,
+    description: Optional[str] = None,
+    url: Optional[str] = None,
+    status: str = "active",
+    suggested_by: Optional[str] = None,
+) -> Dict:
+    db = SessionLocal()
+    try:
+        if _find_duplicate_title(db, title):
+            return {"success": False, "reason": "duplicate"}
+        book = Book(
+            title=title.strip(), author=author.strip(), pages=pages,
+            description=description, url=url, status=status, suggested_by=suggested_by,
+        )
+        db.add(book)
+        db.commit()
+        db.refresh(book)
+        return {"success": True, "book": _book_to_dict(book)}
+    except Exception as e:
+        db.rollback()
+        logger.error(f"add_book failed: {e}")
+        return {"success": False, "reason": "error"}
+    finally:
+        db.close()
+
+
+def update_book(book_id: int, fields: Dict) -> Optional[Dict]:
+    """Update title/author/pages/description/url/status. Returns None if missing."""
+    db = SessionLocal()
+    try:
+        book = db.query(Book).filter(Book.id == book_id).first()
+        if not book:
+            return None
+        for attr in ("title", "author", "pages", "description", "url", "status"):
+            if attr in fields and fields[attr] is not None:
+                setattr(book, attr, fields[attr])
+        db.commit()
+        db.refresh(book)
+        return _book_to_dict(book)
+    except Exception as e:
+        db.rollback()
+        logger.error(f"update_book failed: {e}")
+        return None
+    finally:
+        db.close()
+
+
+def book_has_ballots(book_id: int) -> bool:
+    """True if any current ballot ranks or vetoes this book (by title)."""
+    db = SessionLocal()
+    try:
+        book = db.query(Book).filter(Book.id == book_id).first()
+        if not book:
+            return False
+        title = book.title
+        for row in db.query(BookVote).all():
+            try:
+                ballot = _json.loads(row.vote_data)
+            except Exception:
+                continue
+            if title in (ballot.get("rank1"), ballot.get("rank2"),
+                         ballot.get("rank3"), ballot.get("rank4"), ballot.get("veto")):
+                return True
+        return False
+    finally:
+        db.close()
+
+
+def delete_book(book_id: int) -> str:
+    """Returns 'ok', 'not_found', or 'blocked' (referenced by a live ballot)."""
+    if book_has_ballots(book_id):
+        return "blocked"
+    db = SessionLocal()
+    try:
+        book = db.query(Book).filter(Book.id == book_id).first()
+        if not book:
+            return "not_found"
+        db.delete(book)
+        db.commit()
+        return "ok"
+    finally:
+        db.close()
+
+
+def reset_round(label: Optional[str] = None) -> Dict:
+    """Close the current round: snapshot everything into VoteRound, then
+    clear ballots + cards and archive all active books. Suggestions survive.
+    Skips the snapshot (nothing to preserve) when there are no ballots."""
+    results = get_vote_results()
+    ballots = get_all_ballots()
+    cards = get_vote_cards()
+    active_books = get_books("active")
+    db = SessionLocal()
+    try:
+        summary: Dict = {"success": True, "archived_round": False, "winner": None}
+        if ballots:
+            ranking = results.get("ranking") or []
+            winner = ranking[-1] if ranking else None
+            snapshot = {
+                "label": label,
+                "books": active_books,
+                "ballots": ballots,
+                "results": results,
+                "cards": cards,
+                "winner": winner,
+            }
+            db.add(VoteRound(
+                label=label, winner=winner, total_ballots=len(ballots),
+                snapshot=_json.dumps(snapshot),
+            ))
+            summary["archived_round"] = True
+            summary["winner"] = winner
+        summary["ballots_cleared"] = db.query(BookVote).delete()
+        summary["cards_cleared"] = db.query(VoteCard).delete()
+        summary["books_archived"] = (
+            db.query(Book).filter(Book.status == "active").update({"status": "archived"})
+        )
+        db.commit()
+        return summary
+    except Exception as e:
+        db.rollback()
+        logger.error(f"reset_round failed: {e}")
+        return {"success": False, "reason": "error"}
+    finally:
+        db.close()
+
+
+def get_rounds() -> List[Dict]:
+    """History listing, newest first. Summaries only — no full snapshots."""
+    db = SessionLocal()
+    try:
+        rows = db.query(VoteRound).order_by(VoteRound.created_at.desc()).all()
+        return [
+            {
+                "id": r.id,
+                "label": r.label,
+                "winner": r.winner,
+                "total_ballots": r.total_ballots,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+            }
+            for r in rows
+        ]
+    finally:
+        db.close()
+
+
+def get_round(round_id: int) -> Optional[Dict]:
+    db = SessionLocal()
+    try:
+        r = db.query(VoteRound).filter(VoteRound.id == round_id).first()
+        if not r:
+            return None
+        try:
+            snapshot = _json.loads(r.snapshot)
+        except Exception:
+            snapshot = {}
+        snapshot["id"] = r.id
+        snapshot["created_at"] = r.created_at.isoformat() if r.created_at else None
+        return snapshot
     finally:
         db.close()
 

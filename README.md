@@ -2,7 +2,14 @@
 
 > ATX Book Club
 
-Standalone voting site for an in-person book club. Ranked-choice ballots + a waiting-room carousel of user-submitted cards.
+Standalone voting site for an in-person book club. Ranked-choice ballots + a waiting-room carousel of user-submitted cards. The book list lives in the database and is managed in the UI: anyone can suggest books, an admin approves them onto the ballot, and closing a round archives the full vote to a History tab.
+
+## How a round works
+
+1. Anyone suggests books on the **Suggest** tab (title + author, optional link/why). Suggestions are publicly visible but not votable.
+2. An admin (gear icon, ballot password, remembered per browser) approves suggestions onto the ballot, or adds/edits/removes books directly. Removing a book someone already voted for is blocked.
+3. Voting is open while the ballot has at least 5 active books; below that the page shows a "round is being curated" notice.
+4. **Reset & Archive Round** (admin, Results tab) snapshots the book list, every ballot, round-by-round results, winner, and cards into the **History** tab, then clears everything. The next round starts with an empty ballot; pending suggestions survive.
 
 Originally lived inside the Life project at `https://life-production-a332.up.railway.app/vote`. Extracted to its own Railway project + GitHub repo in April 2026 to decouple from personal systems. The old URL now redirects here.
 
@@ -38,6 +45,17 @@ uvicorn main:app --reload --port 8000
 | GET | `/vote` | — |
 | POST | `/vote/submit` | — |
 | GET | `/vote/results/data` | — |
+| GET | `/vote/books` | — (active ballot) |
+| GET | `/vote/suggestions` | — (pending suggestions) |
+| POST | `/vote/suggest` | — |
+| POST | `/vote/books?password=…` | password (add book) |
+| PUT | `/vote/books/{id}?password=…` | password (edit book) |
+| DELETE | `/vote/books/{id}?password=…` | password (remove book/suggestion; 409 if voted on) |
+| POST | `/vote/books/{id}/approve?password=…` | password (suggestion → ballot) |
+| POST | `/vote/admin/check?password=…` | password (UI admin unlock) |
+| POST | `/vote/reset?password=…` | password (archive round + clear) |
+| GET | `/vote/history` | — (past round summaries) |
+| GET | `/vote/history/{id}` | — (full frozen snapshot) |
 | GET | `/vote/cards` | — |
 | POST | `/vote/cards` | — |
 | DELETE | `/vote/cards/{id}` | — |
@@ -45,6 +63,8 @@ uvicorn main:app --reload --port 8000
 | DELETE | `/vote/ballot/{name}?password=…` | password |
 | GET | `/health` | — |
 | POST | `/_admin/seed?token=…` | token (one-shot migration) |
+
+On first boot after this feature deploys, the previously hardcoded 12-book list is seeded into the new `books` table so the round in progress keeps working unchanged.
 
 ## One-shot migration from Life
 
