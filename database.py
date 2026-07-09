@@ -88,6 +88,20 @@ class VoteRound(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class Setting(Base):
+    """Simple key/value store for admin-controlled site state, e.g.
+    voting_open and suggestions_open ("1"/"0")."""
+
+    __tablename__ = "settings"
+
+    key = Column(String, primary_key=True)
+    value = Column(String, nullable=False)
+
+
+# Defaults applied when a setting has never been written.
+_SETTING_DEFAULTS = {"voting_open": "1", "suggestions_open": "1"}
+
+
 def init_db() -> None:
     """Create tables on startup. Idempotent."""
     Base.metadata.create_all(bind=engine)
@@ -532,10 +546,79 @@ def delete_book(book_id: int) -> str:
         db.close()
 
 
-def reset_round(label: Optional[str] = None) -> Dict:
-    """Close the current round: snapshot everything into VoteRound, then
-    clear ballots + cards and archive all active books. Suggestions survive.
-    Skips the snapshot (nothing to preserve) when there are no ballots."""
+# ---------------------------------------------------------------------------
+# Settings — admin-controlled site state (voting/suggestions open or closed).
+
+
+def get_settings() -> Dict:
+    """All settings, with defaults filled in for keys never written."""
+    db = SessionLocal()
+    try:
+        stored = {s.key: s.value for s in db.query(Setting).all()}
+        return {**_SETTING_DEFAULTS, **stored}
+    finally:
+        db.close()
+
+
+def set_setting(key: str, value: str) -> Dict:
+    db = SessionLocal()
+    try:
+        row = db.query(Setting).filter(Setting.key == key).first()
+        if row:
+            row.value = value
+        else:
+            db.add(Setting(key=key, value=value))
+        db.commit()
+        return {"success": True, "key": key, "value": value}
+    except Exception as e:
+        db.rollback()
+        logger.error(f"set_setting failed: {e}")
+        return {"success": False, "reason": "error"}
+    finally:
+        db.close()
+
+
+def delete_round(round_id: int) -> bool:
+    db = SessionLocal()
+    try:
+        row = db.query(VoteRound).filter(VoteRound.id == round_id).first()
+        if not row:
+            return False
+        db.delete(row)
+        db.commit()
+        return True
+    finally:
+        db.close()
+
+
+def update_round_label(round_id: int, label: Optional[str]) -> Optional[Dict]:
+    """Rename a history entry. Updates both the column and the snapshot JSON."""
+    db = SessionLocal()
+    try:
+        row = db.query(VoteRound).filter(VoteRound.id == round_id).first()
+        if not row:
+            return None
+        row.label = label
+        try:
+            snap = _json.loads(row.snapshot)
+            snap["label"] = label
+            row.snapshot = _json.dumps(snap)
+        except Exception:
+            pass
+        db.commit()
+        return {"id": row.id, "label": row.label}
+    except Exception as e:
+        db.rollback()
+        logger.error(f"update_round_label failed: {e}")
+        return None
+    finally:
+        db.close()
+
+
+def reset_round(label: Optional[str] = None, archive: bool = True) -> Dict:
+    """Close the current round: optionally snapshot everything into VoteRound,
+    then clear ballots + cards and archive all active books. Suggestions survive.
+    When archive is False, or there are no ballots, no snapshot is written."""
     results = get_vote_results()
     ballots = get_all_ballots()
     cards = get_vote_cards()
@@ -543,7 +626,7 @@ def reset_round(label: Optional[str] = None) -> Dict:
     db = SessionLocal()
     try:
         summary: Dict = {"success": True, "archived_round": False, "winner": None}
-        if ballots:
+        if ballots and archive:
             ranking = results.get("ranking") or []
             winner = ranking[-1] if ranking else None
             snapshot = {

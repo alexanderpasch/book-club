@@ -600,17 +600,52 @@ _BOOK_VOTE_BODY = """
   .add-card-submit { background: var(--accent-soft); color: var(--accent); border-color: var(--accent) !important; font-weight: 600; }
   .add-card-submit:hover { background: var(--accent); color: #fff; }
 
-  /* Admin mode */
-  .admin-toggle {
-    margin-left: auto; background: none; border: none; cursor: pointer;
-    color: var(--muted); font-size: 16px; opacity: .4; padding: 8px 10px;
-    transition: opacity .2s, color .2s;
-  }
-  .admin-toggle:hover { opacity: .9; }
-  .admin-toggle.on { color: var(--accent); opacity: 1; }
+  /* Admin tab */
+  .tab-admin-btn { margin-left: auto; }
   .admin-book-btn { border-color: rgba(124,58,46,.35) !important; }
   .admin-book-btn.admin-del { color: #c0392b !important; border-color: rgba(192,57,43,.35) !important; }
-  #adminBookTools { margin-top: 14px; text-align: center; }
+  .admin-book-btn.admin-approve { color: #2e7d32 !important; border-color: rgba(46,125,50,.4) !important; }
+  .admin-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: 24px; padding: 12px 16px; border-radius: 10px;
+    background: rgba(124,58,46,.06); border: 1px solid rgba(124,58,46,.15);
+  }
+  .admin-bar-label {
+    font-family: 'Libre Baskerville', Georgia, serif; font-size: 13px;
+    font-weight: 700; color: var(--accent); letter-spacing: .04em;
+  }
+  .admin-section {
+    margin-top: 22px; padding: 20px; border-radius: 14px;
+    background: var(--panel); border: 1px solid var(--border);
+  }
+  .admin-h3 {
+    margin: 0 0 14px; font-size: 15px; color: var(--accent);
+    font-family: 'Libre Baskerville', Georgia, serif; letter-spacing: .02em;
+  }
+  .admin-toggle-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 0; border-bottom: 1px solid rgba(139,100,60,.08);
+  }
+  .admin-toggle-row:last-child { border-bottom: none; }
+  .admin-toggle-name { font-weight: 600; font-size: 14px; color: var(--text); }
+  .admin-toggle-sub { font-size: 12.5px; margin-top: 2px; font-style: italic; }
+  .admin-toggle-sub.open { color: #2e7d32; }
+  .admin-toggle-sub.closed { color: #c0392b; }
+  .pill-toggle {
+    padding: 8px 16px; border-radius: 999px; border: 1px solid var(--accent);
+    background: var(--accent-soft); color: var(--accent); font-size: 13px;
+    font-weight: 600; cursor: pointer; transition: all .2s; white-space: nowrap;
+  }
+  .pill-toggle:hover { background: var(--accent); color: #fff; }
+  .admin-danger { border-color: rgba(192,57,43,.25); }
+  .admin-danger-btns { display: flex; gap: 10px; flex-wrap: wrap; }
+  .admin-hist-row {
+    display: flex; align-items: center; gap: 10px; padding: 10px 0;
+    border-bottom: 1px solid rgba(139,100,60,.08); flex-wrap: wrap;
+  }
+  .admin-hist-row:last-child { border-bottom: none; }
+  .admin-hist-name { flex: 1; min-width: 0; font-size: 14px; color: var(--text); }
+  .admin-hist-name span { color: var(--muted); font-size: 12.5px; font-style: italic; }
   .book-form {
     margin-top: 12px; padding: 18px; border-radius: 14px; text-align: left;
     background: var(--panel); border: 1px solid var(--border);
@@ -668,7 +703,7 @@ _BOOK_VOTE_BODY = """
   <button class="tab-btn" data-tab="suggest">Suggest</button>
   <button class="tab-btn" data-tab="results">Results</button>
   <button class="tab-btn" data-tab="history">History</button>
-  <button class="admin-toggle" id="adminToggle" title="Admin mode">&#9881;</button>
+  <button class="tab-btn tab-admin-btn" data-tab="admin">Admin</button>
 </div>
 
 <!-- Vote tab -->
@@ -682,6 +717,10 @@ _BOOK_VOTE_BODY = """
     <p>Not enough books on the ballot yet &mdash; voting opens once there are at least five.</p>
     <button class="results-refresh" id="curationSuggestBtn">Suggest a book &#8594;</button>
   </div>
+  <div class="curation-notice" id="votingClosedNotice" style="display:none">
+    <div class="curation-title">Voting is closed</div>
+    <p>The admin has closed voting for now. Check the Results tab to see how it turned out.</p>
+  </div>
   <div class="name-block">
     <div class="name-field">
       <label for="displayName">Name <span class="required-star">*</span></label>
@@ -690,22 +729,6 @@ _BOOK_VOTE_BODY = """
   </div>
 
   <ul class="book-list" id="bookList"></ul>
-
-  <div id="adminBookTools" style="display:none">
-    <button class="results-refresh" id="addBookBtn">+ Add book</button>
-    <div class="book-form" id="bookForm" style="display:none">
-      <input id="bfTitle" placeholder="Title *">
-      <input id="bfAuthor" placeholder="Author *">
-      <input id="bfPages" type="number" placeholder="Pages">
-      <input id="bfUrl" placeholder="Link (Goodreads etc.)">
-      <textarea id="bfDesc" placeholder="Short description"></textarea>
-      <div class="add-card-actions">
-        <button class="add-card-cancel" id="bfCancel">Cancel</button>
-        <button class="add-card-submit" id="bfSave">Save Book</button>
-      </div>
-      <div class="dl-error" id="bfError"></div>
-    </div>
-  </div>
 
   <div class="vote-summary">
     <h3>Your Ballot</h3>
@@ -729,30 +752,16 @@ _BOOK_VOTE_BODY = """
   <div id="topTwo"></div>
   <div id="cardCarousel"></div>
   <ul class="results-list" id="resultsList"></ul>
-  <div class="dl-block">
-    <h3>Full Ballot Data</h3>
-    <div class="dl-row">
-      <input type="password" id="dlPassword" placeholder="Enter password">
-      <button id="dlBtn">Show Data</button>
-    </div>
-    <div class="dl-error" id="dlError">Wrong password.</div>
-    <table class="ballot-table" id="ballotTable">
-      <thead><tr><th>Voter</th><th>1st</th><th>2nd</th><th>3rd</th><th>4th</th><th>Veto</th><th></th></tr></thead>
-      <tbody id="ballotBody"></tbody>
-    </table>
-  </div>
-  <div class="dl-block" id="resetBlock" style="display:none">
-    <h3>Close This Round</h3>
-    <p class="reset-note">Archives the current vote to the History tab, then clears all ballots and cards and empties the book list. Pending suggestions are kept for the next round.</p>
-    <button class="reset-btn" id="resetBtn">Reset &amp; Archive Round</button>
-    <div class="dl-error" id="resetError"></div>
-  </div>
 </div>
 
 <!-- Suggest tab -->
 <div class="tab-panel" id="tab-suggest">
   <p class="suggest-intro">Have a book the club should read? Suggest it here &mdash; suggestions appear below and join the ballot once approved.</p>
-  <div class="name-block">
+  <div class="curation-notice" id="suggestClosedNotice" style="display:none">
+    <div class="curation-title">Suggestions are closed</div>
+    <p>The admin isn&rsquo;t taking new book suggestions right now.</p>
+  </div>
+  <div class="name-block" id="suggestFormBlock">
     <div class="name-field">
       <label for="sgTitle">Book Title <span class="required-star">*</span></label>
       <input type="text" id="sgTitle" placeholder="e.g. The Overstory">
@@ -787,16 +796,123 @@ _BOOK_VOTE_BODY = """
   <div class="results-empty" id="historyEmpty" style="display:none">No past votes yet &mdash; history appears once a round is closed.</div>
 </div>
 
+<!-- Admin tab -->
+<div class="tab-panel" id="tab-admin">
+  <!-- Locked: password gate -->
+  <div class="name-block" id="adminGate">
+    <div class="name-field">
+      <label for="adminPw">Admin password</label>
+      <input type="password" id="adminPw" placeholder="Enter to unlock controls" autocomplete="current-password">
+    </div>
+    <button class="vote-submit" id="adminUnlockBtn" style="margin-top:16px">Unlock</button>
+    <div class="name-error" id="adminGateError"></div>
+  </div>
+
+  <!-- Unlocked: dashboard -->
+  <div id="adminDashboard" style="display:none">
+    <div class="admin-bar">
+      <span class="admin-bar-label">Admin mode</span>
+      <button class="results-refresh" id="adminLockBtn">Lock</button>
+    </div>
+
+    <div class="admin-section">
+      <h3 class="admin-h3">Status</h3>
+      <div class="admin-toggle-row">
+        <div><div class="admin-toggle-name">Voting</div><div class="admin-toggle-sub" id="votingStateLabel">&mdash;</div></div>
+        <button class="pill-toggle" id="votingToggle">Toggle</button>
+      </div>
+      <div class="admin-toggle-row">
+        <div><div class="admin-toggle-name">Suggestions</div><div class="admin-toggle-sub" id="suggestStateLabel">&mdash;</div></div>
+        <button class="pill-toggle" id="suggestToggle">Toggle</button>
+      </div>
+    </div>
+
+    <div class="admin-section">
+      <h3 class="admin-h3">Books on the ballot</h3>
+      <ul class="book-list" id="adminBookList"></ul>
+      <button class="results-refresh" id="addBookBtn" style="margin-top:12px">+ Add book</button>
+      <div class="book-form" id="bookForm" style="display:none">
+        <input id="bfTitle" placeholder="Title *">
+        <input id="bfAuthor" placeholder="Author *">
+        <input id="bfPages" type="number" placeholder="Pages">
+        <input id="bfUrl" placeholder="Link (Goodreads etc.)">
+        <textarea id="bfDesc" placeholder="Short description"></textarea>
+        <div class="add-card-actions">
+          <button class="add-card-cancel" id="bfCancel">Cancel</button>
+          <button class="add-card-submit" id="bfSave">Save Book</button>
+        </div>
+        <div class="dl-error" id="bfError"></div>
+      </div>
+    </div>
+
+    <div class="admin-section">
+      <h3 class="admin-h3">Pending suggestions</h3>
+      <ul class="book-list" id="adminSuggestionList"></ul>
+      <div class="results-empty" id="adminSuggestionEmpty" style="display:none">No pending suggestions.</div>
+    </div>
+
+    <div class="admin-section">
+      <h3 class="admin-h3">Votes cast</h3>
+      <table class="ballot-table" id="adminBallotTable" style="display:none">
+        <thead><tr><th>Voter</th><th>1st</th><th>2nd</th><th>3rd</th><th>4th</th><th>Veto</th><th></th></tr></thead>
+        <tbody id="adminBallotBody"></tbody>
+      </table>
+      <div class="results-empty" id="adminBallotEmpty" style="display:none">No votes yet.</div>
+    </div>
+
+    <div class="admin-section">
+      <h3 class="admin-h3">History</h3>
+      <div id="adminHistoryList"></div>
+      <div class="results-empty" id="adminHistoryEmpty" style="display:none">No archived rounds.</div>
+    </div>
+
+    <div class="admin-section admin-danger">
+      <h3 class="admin-h3">End this round</h3>
+      <p class="reset-note">Clears all ballots and cards and empties the book list. Pending suggestions are kept. Choose whether to save a snapshot to History first.</p>
+      <div class="admin-danger-btns">
+        <button class="reset-btn" id="resetArchiveBtn">Archive &amp; Reset</button>
+        <button class="reset-btn" id="resetPlainBtn">Reset without archiving</button>
+      </div>
+      <div class="dl-error" id="resetError"></div>
+    </div>
+  </div>
+</div>
+
 <script>
 (function(){
-  // Books come from the DB (see /vote/books); admins manage them in the UI.
+  // Books come from the DB (see /vote/books); admins manage them in the Admin tab.
   var BOOKS = [];
   var MIN_BOOKS = 5;  // 4 ranks + a veto need at least this many candidates
 
-  // Admin mode — unlocked with the ballot password, remembered per browser.
-  var adminMode = false;
+  // Site state (voting/suggestions open) — public, reflected across tabs.
+  var SETTINGS = { voting_open: "1", suggestions_open: "1" };
+
+  // Admin — unlocked with the ballot password, remembered per browser.
+  var adminUnlocked = false;
   var _adminPw = "";
   try { _adminPw = localStorage.getItem("bc_admin_pw") || ""; } catch(e) {}
+
+  function votingOpen() { return SETTINGS.voting_open === "1"; }
+  function suggestionsOpen() { return SETTINGS.suggestions_open === "1"; }
+
+  async function loadSettings() {
+    try {
+      const resp = await fetch("/vote/settings");
+      const data = await resp.json();
+      if (data && data.voting_open !== undefined) SETTINGS = data;
+    } catch(e) {}
+    applyGating();
+  }
+
+  // Reflect open/closed state on the Vote and Suggest tabs.
+  function applyGating() {
+    const votingClosed = !votingOpen();
+    document.getElementById("votingClosedNotice").style.display = votingClosed ? "" : "none";
+    const sgClosed = !suggestionsOpen();
+    document.getElementById("suggestClosedNotice").style.display = sgClosed ? "" : "none";
+    document.getElementById("suggestFormBlock").style.display = sgClosed ? "none" : "";
+    render();
+  }
 
   async function loadBooks() {
     try {
@@ -813,6 +929,7 @@ _BOOK_VOTE_BODY = """
     state.ranks = [null, null, null, null];
     state.veto = null;
     render();
+    if (adminUnlocked) renderAdminBooks();
   }
 
   const NUM_RANKS = 4;
@@ -831,6 +948,7 @@ _BOOK_VOTE_BODY = """
       if (this.dataset.tab === "results") loadResults();
       if (this.dataset.tab === "suggest") loadSuggestions();
       if (this.dataset.tab === "history") loadHistory();
+      if (this.dataset.tab === "admin") openAdminTab();
     });
   });
 
@@ -876,15 +994,17 @@ _BOOK_VOTE_BODY = """
   function render() {
     const list = document.getElementById("bookList");
     const tooFew = BOOKS.length < MIN_BOOKS;
+    const closed = !votingOpen();
+    const canVote = !tooFew && !closed;
 
-    // Under MIN_BOOKS the round isn't open: hide the ballot, show the notice.
-    document.getElementById("curationNotice").style.display = tooFew ? "" : "none";
-    document.getElementById("countdownBlock").style.display = tooFew ? "none" : "";
-    document.querySelector(".name-block").style.display = tooFew ? "none" : "";
-    document.querySelector(".vote-summary").style.display = tooFew ? "none" : "";
-    document.getElementById("adminBookTools").style.display = adminMode ? "" : "none";
+    // Vote tab visibility: closed (admin) > curation (too few) > open ballot.
+    document.getElementById("votingClosedNotice").style.display = closed ? "" : "none";
+    document.getElementById("curationNotice").style.display = (tooFew && !closed) ? "" : "none";
+    document.getElementById("countdownBlock").style.display = canVote ? "" : "none";
+    document.querySelector("#tab-vote .name-block").style.display = canVote ? "" : "none";
+    document.querySelector("#tab-vote .vote-summary").style.display = canVote ? "" : "none";
 
-    if (tooFew && !adminMode) { list.innerHTML = ""; return; }
+    if (!canVote) { list.innerHTML = ""; return; }
 
     list.innerHTML = BOOKS.map((b, i) => {
       const rankIdx = state.ranks.indexOf(i);
@@ -898,18 +1018,12 @@ _BOOK_VOTE_BODY = """
       else if (isVetoed)      { cls += " vetoed";  badge = "\\u2718"; }
 
       let btns = "";
-      if (!tooFew) {
-        for (let r = 1; r <= NUM_RANKS; r++) {
-          const active = state.ranks[r-1] === i ? "active-rank" : "";
-          btns += '<button class="' + active + '" data-book="' + i + '" data-rank="' + r + '">' + suf(r) + '</button>';
-        }
-        const vetoActive = isVetoed ? "active-veto" : "";
-        btns += '<button class="' + vetoActive + '" data-book="' + i + '" data-action="veto">Veto</button>';
+      for (let r = 1; r <= NUM_RANKS; r++) {
+        const active = state.ranks[r-1] === i ? "active-rank" : "";
+        btns += '<button class="' + active + '" data-book="' + i + '" data-rank="' + r + '">' + suf(r) + '</button>';
       }
-      if (adminMode) {
-        btns += '<button class="admin-book-btn" data-book="' + i + '" data-action="edit">Edit</button>'
-              + '<button class="admin-book-btn admin-del" data-book="' + i + '" data-action="del">Remove</button>';
-      }
+      const vetoActive = isVetoed ? "active-veto" : "";
+      btns += '<button class="' + vetoActive + '" data-book="' + i + '" data-action="veto">Veto</button>';
       const badgeClass = badge ? "book-badge ranked-badge" : "book-badge";
       return '<li class="' + cls + '">'
         + '<div class="' + badgeClass + '">' + (badge || (i + 1)) + '</div>'
@@ -943,14 +1057,6 @@ _BOOK_VOTE_BODY = """
       // Toggle description
       const desc = document.getElementById("desc-" + bookIdx);
       if (desc) desc.classList.toggle("open");
-      return;
-    }
-    if (btn.dataset.action === "edit") {
-      openBookForm(BOOKS[bookIdx]);
-      return;
-    }
-    if (btn.dataset.action === "del") {
-      deleteBookAdmin(BOOKS[bookIdx]);
       return;
     }
     if (btn.dataset.action === "veto") {
@@ -1369,60 +1475,46 @@ _BOOK_VOTE_BODY = """
     });
   }
 
-  // --- Download full data ---
-  let _dlPassword = "";
-
-  async function loadBallots() {
-    const pw = _dlPassword;
-    const errEl = document.getElementById("dlError");
-    const table = document.getElementById("ballotTable");
-    const body = document.getElementById("ballotBody");
-    errEl.style.display = "none";
+  // --- Admin: votes viewer (uses the stored admin password) ---
+  async function loadAdminBallots() {
+    const table = document.getElementById("adminBallotTable");
+    const body = document.getElementById("adminBallotBody");
+    const empty = document.getElementById("adminBallotEmpty");
+    empty.style.display = "none";
     table.style.display = "none";
     try {
-      const resp = await fetch("/vote/ballots?password=" + encodeURIComponent(pw), {method: "POST"});
-      if (!resp.ok) {
-        errEl.style.display = "block";
-        errEl.textContent = resp.status === 403 ? "Wrong password." : "Error loading data.";
-        return;
-      }
+      const resp = await fetch("/vote/ballots?password=" + encodeURIComponent(_adminPw), {method: "POST"});
+      if (!resp.ok) { empty.style.display = "block"; empty.textContent = "Could not load votes."; return; }
       const data = await resp.json();
-      body.innerHTML = (data.ballots || []).map(b => {
-        const safeVoter = b.voter.replace(/"/g, "&quot;");
+      const ballots = data.ballots || [];
+      if (!ballots.length) { empty.style.display = "block"; empty.textContent = "No votes yet."; return; }
+      body.innerHTML = ballots.map(b => {
+        const safeVoter = _escHtml(b.voter);
         return "<tr>"
-          + "<td>" + b.voter + "</td>"
-          + "<td>" + (b.rank1||"") + "</td>"
-          + "<td>" + (b.rank2||"") + "</td>"
-          + "<td>" + (b.rank3||"") + "</td>"
-          + "<td>" + (b.rank4||"") + "</td>"
-          + "<td class=\\"veto-cell\\">" + (b.veto||"\\u2014") + "</td>"
+          + "<td>" + _escHtml(b.voter) + "</td>"
+          + "<td>" + _escHtml(b.rank1||"") + "</td>"
+          + "<td>" + _escHtml(b.rank2||"") + "</td>"
+          + "<td>" + _escHtml(b.rank3||"") + "</td>"
+          + "<td>" + _escHtml(b.rank4||"") + "</td>"
+          + "<td class=\\"veto-cell\\">" + _escHtml(b.veto||"\\u2014") + "</td>"
           + "<td><button class=\\"ballot-delete-btn\\" data-voter=\\"" + safeVoter + "\\" title=\\"Delete vote\\">\\u2715</button></td>"
           + "</tr>";
       }).join("");
       table.style.display = "table";
     } catch(e) {
-      errEl.style.display = "block";
-      errEl.textContent = "Network error.";
+      empty.style.display = "block"; empty.textContent = "Network error.";
     }
   }
 
-  document.getElementById("dlBtn").addEventListener("click", async function() {
-    _dlPassword = document.getElementById("dlPassword").value;
-    await loadBallots();
-  });
-
-  document.getElementById("ballotBody").addEventListener("click", async function(e) {
+  document.getElementById("adminBallotBody").addEventListener("click", async function(e) {
     const btn = e.target.closest(".ballot-delete-btn");
     if (!btn) return;
     const voter = btn.dataset.voter;
     if (!confirm("Delete the vote submitted by \\u201c" + voter + "\\u201d?\\n\\nThis cannot be undone.")) return;
     try {
-      const resp = await fetch("/vote/ballot/" + encodeURIComponent(voter) + "?password=" + encodeURIComponent(_dlPassword), {method: "DELETE"});
-      if (!resp.ok) {
-        alert(resp.status === 403 ? "Wrong password." : "Failed to delete vote.");
-        return;
-      }
-      await loadBallots();
+      const resp = await fetch("/vote/ballot/" + encodeURIComponent(voter) + "?password=" + encodeURIComponent(_adminPw), {method: "DELETE"});
+      if (!resp.ok) { alert("Failed to delete vote."); return; }
+      await loadAdminBallots();
     } catch(e) {
       alert("Network error.");
     }
@@ -1430,7 +1522,7 @@ _BOOK_VOTE_BODY = """
 
   document.getElementById("refreshBtn").addEventListener("click", loadResults);
 
-  // --- Suggest tab ---
+  // --- Suggest tab (public, read-only list) ---
   async function loadSuggestions() {
     const list = document.getElementById("suggestionList");
     const empty = document.getElementById("suggestionEmpty");
@@ -1440,12 +1532,6 @@ _BOOK_VOTE_BODY = """
       const items = data.suggestions || [];
       empty.style.display = items.length ? "none" : "block";
       list.innerHTML = items.map(function(s) {
-        const adminBtns = adminMode
-          ? '<div class="book-actions">'
-            + '<button class="admin-book-btn sg-approve" data-id="' + s.id + '">Approve</button>'
-            + '<button class="admin-book-btn admin-del sg-reject" data-id="' + s.id + '">Reject</button>'
-            + '</div>'
-          : "";
         return '<li class="book-item">'
           + '<div class="book-badge">&#10047;</div>'
           + '<div class="book-info">'
@@ -1455,7 +1541,6 @@ _BOOK_VOTE_BODY = """
           +   (s.desc ? '<div class="book-desc open">' + _escHtml(s.desc) + '</div>' : '')
           +   (s.url ? '<a class="book-link" href="' + _escHtml(s.url) + '" target="_blank" rel="noreferrer">Link</a>' : '')
           + '</div>'
-          + adminBtns
           + '</li>';
       }).join("");
     } catch(e) {
@@ -1510,23 +1595,6 @@ _BOOK_VOTE_BODY = """
     }
     this.disabled = false;
     this.textContent = "Suggest Book";
-  });
-
-  document.getElementById("suggestionList").addEventListener("click", async function(e) {
-    const btn = e.target.closest("button");
-    if (!btn || !btn.dataset.id) return;
-    const id = btn.dataset.id;
-    if (btn.classList.contains("sg-approve")) {
-      const resp = await fetch("/vote/books/" + id + "/approve?password=" + encodeURIComponent(_adminPw), {method: "POST"});
-      if (!resp.ok) { alert("Approve failed."); return; }
-      await loadBooks();
-      loadSuggestions();
-    } else if (btn.classList.contains("sg-reject")) {
-      if (!confirm("Reject this suggestion? It will be deleted.")) return;
-      const resp = await fetch("/vote/books/" + id + "?password=" + encodeURIComponent(_adminPw), {method: "DELETE"});
-      if (!resp.ok) { alert("Reject failed."); return; }
-      loadSuggestions();
-    }
   });
 
   // --- History tab ---
@@ -1625,7 +1693,7 @@ _BOOK_VOTE_BODY = """
     btn.textContent = "Hide details";
   });
 
-  // --- Admin mode ---
+  // --- Admin tab ---
   async function _verifyAdmin(pw) {
     try {
       const resp = await fetch("/vote/admin/check?password=" + encodeURIComponent(pw), {method: "POST"});
@@ -1633,40 +1701,138 @@ _BOOK_VOTE_BODY = """
     } catch(e) { return false; }
   }
 
-  function setAdmin(on) {
-    adminMode = on;
-    const gear = document.getElementById("adminToggle");
-    gear.classList.toggle("on", on);
-    gear.title = on ? "Exit admin mode" : "Admin mode";
-    document.getElementById("resetBlock").style.display = on ? "" : "none";
-    if (!on) closeBookForm();
-    render();
-    if (document.getElementById("tab-suggest").classList.contains("active")) loadSuggestions();
+  function showAdminDashboard(on) {
+    document.getElementById("adminGate").style.display = on ? "none" : "";
+    document.getElementById("adminDashboard").style.display = on ? "" : "none";
   }
 
-  document.getElementById("adminToggle").addEventListener("click", async function() {
-    if (adminMode) {
-      try { localStorage.removeItem("bc_admin_pw"); } catch(e) {}
-      _adminPw = "";
-      setAdmin(false);
-      return;
-    }
-    const pw = prompt("Admin password:");
+  function refreshAdmin() {
+    renderAdminStatus();
+    renderAdminBooks();
+    renderAdminSuggestions();
+    loadAdminBallots();
+    renderAdminHistory();
+  }
+
+  // Called when the Admin tab is opened.
+  function openAdminTab() {
+    showAdminDashboard(adminUnlocked);
+    if (adminUnlocked) refreshAdmin();
+    else document.getElementById("adminPw").focus();
+  }
+
+  async function unlockAdmin(pw) {
+    if (!(await _verifyAdmin(pw))) return false;
+    _adminPw = pw;
+    adminUnlocked = true;
+    try { localStorage.setItem("bc_admin_pw", pw); } catch(e) {}
+    showAdminDashboard(true);
+    refreshAdmin();
+    return true;
+  }
+
+  function lockAdmin() {
+    adminUnlocked = false;
+    _adminPw = "";
+    try { localStorage.removeItem("bc_admin_pw"); } catch(e) {}
+    closeBookForm();
+    showAdminDashboard(false);
+  }
+
+  document.getElementById("adminUnlockBtn").addEventListener("click", async function() {
+    const err = document.getElementById("adminGateError");
+    err.style.display = "none";
+    const pw = document.getElementById("adminPw").value;
     if (!pw) return;
-    if (await _verifyAdmin(pw)) {
-      _adminPw = pw;
-      try { localStorage.setItem("bc_admin_pw", pw); } catch(e) {}
-      setAdmin(true);
-    } else {
-      alert("Wrong password.");
-    }
+    this.disabled = true; this.textContent = "Unlocking...";
+    const ok = await unlockAdmin(pw);
+    if (!ok) { err.style.display = "block"; err.textContent = "Wrong password."; }
+    document.getElementById("adminPw").value = "";
+    this.disabled = false; this.textContent = "Unlock";
   });
+  document.getElementById("adminPw").addEventListener("keydown", function(e) {
+    if (e.key === "Enter") document.getElementById("adminUnlockBtn").click();
+  });
+  document.getElementById("adminLockBtn").addEventListener("click", lockAdmin);
 
   async function initAdmin() {
-    if (_adminPw && await _verifyAdmin(_adminPw)) setAdmin(true);
+    if (_adminPw && await _verifyAdmin(_adminPw)) {
+      adminUnlocked = true;
+      if (document.getElementById("tab-admin").classList.contains("active")) openAdminTab();
+    } else {
+      adminUnlocked = false;
+      _adminPw = "";
+    }
   }
 
-  // --- Admin: add/edit/remove books ---
+  // --- Admin: status toggles ---
+  function renderAdminStatus() {
+    const vOpen = votingOpen(), sOpen = suggestionsOpen();
+    const vl = document.getElementById("votingStateLabel");
+    vl.textContent = vOpen ? "Open \\u2014 people can vote" : "Closed";
+    vl.className = "admin-toggle-sub " + (vOpen ? "open" : "closed");
+    document.getElementById("votingToggle").textContent = vOpen ? "Close voting" : "Open voting";
+    const sl = document.getElementById("suggestStateLabel");
+    sl.textContent = sOpen ? "Open \\u2014 people can suggest" : "Closed";
+    sl.className = "admin-toggle-sub " + (sOpen ? "open" : "closed");
+    document.getElementById("suggestToggle").textContent = sOpen ? "Close suggestions" : "Open suggestions";
+  }
+
+  async function setSetting(key, value) {
+    try {
+      const resp = await fetch("/vote/settings?password=" + encodeURIComponent(_adminPw), {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({key: key, value: value})
+      });
+      if (!resp.ok) { alert("Could not change setting."); return; }
+      SETTINGS[key] = value;
+      renderAdminStatus();
+      applyGating();
+    } catch(e) { alert("Network error."); }
+  }
+
+  document.getElementById("votingToggle").addEventListener("click", function() {
+    setSetting("voting_open", votingOpen() ? "0" : "1");
+  });
+  document.getElementById("suggestToggle").addEventListener("click", function() {
+    setSetting("suggestions_open", suggestionsOpen() ? "0" : "1");
+  });
+
+  // --- Admin: books (active ballot) ---
+  function bookById(id) {
+    id = parseInt(id);
+    for (var i = 0; i < BOOKS.length; i++) { if (BOOKS[i].id === id) return BOOKS[i]; }
+    return null;
+  }
+
+  function renderAdminBooks() {
+    const list = document.getElementById("adminBookList");
+    if (!BOOKS.length) {
+      list.innerHTML = '<li class="results-empty" style="display:block;padding:16px">No books on the ballot yet.</li>';
+      return;
+    }
+    list.innerHTML = BOOKS.map(function(b, i) {
+      return '<li class="book-item">'
+        + '<div class="book-badge">' + (i + 1) + '</div>'
+        + '<div class="book-info">'
+        +   '<div class="book-title">' + _escHtml(b.title) + '</div>'
+        +   '<div class="book-author">' + _escHtml(b.author) + (b.pages ? ' &middot; ' + b.pages + ' pages' : '') + '</div>'
+        + '</div>'
+        + '<div class="book-actions">'
+        +   '<button class="admin-book-btn" data-id="' + b.id + '" data-act="edit">Edit</button>'
+        +   '<button class="admin-book-btn admin-del" data-id="' + b.id + '" data-act="del">Remove</button>'
+        + '</div>'
+        + '</li>';
+    }).join("");
+  }
+
+  document.getElementById("adminBookList").addEventListener("click", function(e) {
+    const btn = e.target.closest("button"); if (!btn) return;
+    const book = bookById(btn.dataset.id); if (!book) return;
+    if (btn.dataset.act === "edit") openBookForm(book);
+    else if (btn.dataset.act === "del") deleteBookAdmin(book);
+  });
+
   let _editingBookId = null;
 
   function openBookForm(book) {
@@ -1684,8 +1850,10 @@ _BOOK_VOTE_BODY = """
 
   function closeBookForm() {
     _editingBookId = null;
-    document.getElementById("bookForm").style.display = "none";
-    document.getElementById("addBookBtn").style.display = "";
+    const form = document.getElementById("bookForm");
+    if (form) form.style.display = "none";
+    const btn = document.getElementById("addBookBtn");
+    if (btn) btn.style.display = "";
   }
 
   document.getElementById("addBookBtn").addEventListener("click", function() { openBookForm(null); });
@@ -1748,33 +1916,117 @@ _BOOK_VOTE_BODY = """
     }
   }
 
-  // --- Admin: reset round ---
-  document.getElementById("resetBtn").addEventListener("click", async function() {
-    if (!confirm("Close this round? The current vote is archived to the History tab, then the ballot is cleared.")) return;
-    if (!confirm("Are you sure? The next round starts with an empty book list.")) return;
-    this.disabled = true;
-    this.textContent = "Resetting...";
+  // --- Admin: pending suggestions ---
+  async function renderAdminSuggestions() {
+    const list = document.getElementById("adminSuggestionList");
+    const empty = document.getElementById("adminSuggestionEmpty");
     try {
-      const resp = await fetch("/vote/reset?password=" + encodeURIComponent(_adminPw), {method: "POST"});
+      const items = (await (await fetch("/vote/suggestions")).json()).suggestions || [];
+      empty.style.display = items.length ? "none" : "block";
+      list.innerHTML = items.map(function(s) {
+        return '<li class="book-item">'
+          + '<div class="book-badge">&#10047;</div>'
+          + '<div class="book-info">'
+          +   '<div class="book-title">' + _escHtml(s.title) + '</div>'
+          +   '<div class="book-author">' + _escHtml(s.author) + (s.suggested_by ? ' &mdash; ' + _escHtml(s.suggested_by) : '') + '</div>'
+          +   (s.desc ? '<div class="book-desc open">' + _escHtml(s.desc) + '</div>' : '')
+          + '</div>'
+          + '<div class="book-actions">'
+          +   '<button class="admin-book-btn admin-approve" data-id="' + s.id + '" data-act="approve">Approve</button>'
+          +   '<button class="admin-book-btn admin-del" data-id="' + s.id + '" data-act="reject">Reject</button>'
+          + '</div>'
+          + '</li>';
+      }).join("");
+    } catch(e) { list.innerHTML = ""; empty.style.display = "block"; }
+  }
+
+  document.getElementById("adminSuggestionList").addEventListener("click", async function(e) {
+    const btn = e.target.closest("button"); if (!btn) return;
+    const id = btn.dataset.id;
+    if (btn.dataset.act === "approve") {
+      const resp = await fetch("/vote/books/" + id + "/approve?password=" + encodeURIComponent(_adminPw), {method: "POST"});
+      if (!resp.ok) { alert("Approve failed."); return; }
+      await loadBooks();
+      renderAdminSuggestions();
+    } else if (btn.dataset.act === "reject") {
+      if (!confirm("Reject this suggestion? It will be deleted.")) return;
+      const resp = await fetch("/vote/books/" + id + "?password=" + encodeURIComponent(_adminPw), {method: "DELETE"});
+      if (!resp.ok) { alert("Reject failed."); return; }
+      renderAdminSuggestions();
+    }
+  });
+
+  // --- Admin: history management ---
+  async function renderAdminHistory() {
+    const wrap = document.getElementById("adminHistoryList");
+    const empty = document.getElementById("adminHistoryEmpty");
+    wrap.innerHTML = "";
+    try {
+      const rounds = (await (await fetch("/vote/history")).json()).rounds || [];
+      empty.style.display = rounds.length ? "none" : "block";
+      wrap.innerHTML = rounds.map(function(r) {
+        const date = r.created_at
+          ? new Date(r.created_at + "Z").toLocaleDateString(undefined, {year: "numeric", month: "short", day: "numeric"})
+          : "";
+        return '<div class="admin-hist-row">'
+          + '<div class="admin-hist-name">' + (r.label ? _escHtml(r.label) : "Round #" + r.id)
+          +   ' <span>' + (r.winner ? _escHtml(r.winner) : "no winner") + (date ? ' &middot; ' + date : '') + '</span></div>'
+          + '<button class="admin-book-btn" data-id="' + r.id + '" data-act="rename">Rename</button>'
+          + '<button class="admin-book-btn admin-del" data-id="' + r.id + '" data-act="delete">Delete</button>'
+          + '</div>';
+      }).join("");
+    } catch(e) { wrap.innerHTML = '<div class="results-empty">Failed to load history.</div>'; }
+  }
+
+  document.getElementById("adminHistoryList").addEventListener("click", async function(e) {
+    const btn = e.target.closest("button"); if (!btn) return;
+    const id = btn.dataset.id;
+    if (btn.dataset.act === "rename") {
+      const label = prompt("New name for this round (blank to clear):");
+      if (label === null) return;
+      const resp = await fetch("/vote/history/" + id + "?password=" + encodeURIComponent(_adminPw), {
+        method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify({label: label})
+      });
+      if (!resp.ok) { alert("Rename failed."); return; }
+      renderAdminHistory();
+    } else if (btn.dataset.act === "delete") {
+      if (!confirm("Delete this archived round permanently?")) return;
+      const resp = await fetch("/vote/history/" + id + "?password=" + encodeURIComponent(_adminPw), {method: "DELETE"});
+      if (!resp.ok) { alert("Delete failed."); return; }
+      renderAdminHistory();
+    }
+  });
+
+  // --- Admin: end the round ---
+  async function doReset(archive) {
+    const q1 = archive
+      ? "Archive this round to History, then clear the ballot?"
+      : "Clear the ballot WITHOUT saving to History? This cannot be undone.";
+    if (!confirm(q1)) return;
+    if (!confirm("Are you sure? The next round starts with an empty book list.")) return;
+    const err = document.getElementById("resetError");
+    err.style.display = "none";
+    try {
+      const resp = await fetch("/vote/reset?password=" + encodeURIComponent(_adminPw) + "&archive=" + (archive ? "true" : "false"), {method: "POST"});
       if (!resp.ok) throw new Error("fail");
       const data = await resp.json();
       alert(data.archived_round
         ? "Round archived. Winner: " + (data.winner || "\\u2014")
-        : "Round cleared (there were no ballots to archive).");
+        : "Round cleared.");
       window.location.reload();
     } catch(e) {
-      const errEl = document.getElementById("resetError");
-      errEl.style.display = "block";
-      errEl.textContent = "Reset failed.";
-      this.disabled = false;
-      this.textContent = "Reset & Archive Round";
+      err.style.display = "block";
+      err.textContent = "Reset failed.";
     }
-  });
+  }
+  document.getElementById("resetArchiveBtn").addEventListener("click", function() { doReset(true); });
+  document.getElementById("resetPlainBtn").addEventListener("click", function() { doReset(false); });
 
   document.getElementById("curationSuggestBtn").addEventListener("click", function() {
     document.querySelector('.tab-btn[data-tab="suggest"]').click();
   });
 
+  loadSettings();
   loadBooks();
   initAdmin();
 })();

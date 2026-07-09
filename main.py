@@ -18,9 +18,13 @@ Routes:
   DELETE /vote/books/{id}?password  → remove a book/suggestion (admin)
   POST /vote/books/{id}/approve?password → suggestion → ballot (admin)
   POST /vote/admin/check?password   → verify admin password for UI unlock
-  POST /vote/reset?password   → archive round to history + clear (admin)
+  GET  /vote/settings         → voting_open / suggestions_open state (public)
+  POST /vote/settings?password → set voting_open / suggestions_open (admin)
+  POST /vote/reset?password&archive=true|false → close round (admin)
   GET  /vote/history          → past rounds (summaries)
   GET  /vote/history/{id}     → full frozen snapshot of a past round
+  PUT  /vote/history/{id}?password    → rename a past round (admin)
+  DELETE /vote/history/{id}?password  → delete a past round (admin)
   GET  /vote/cards            → list waiting-room cards
   POST /vote/cards            → create a card
   DELETE /vote/cards/{id}     → delete a card
@@ -44,18 +48,22 @@ from database import (
     add_vote_card,
     delete_ballot_by_name,
     delete_book,
+    delete_round,
     delete_vote_card,
     get_all_ballots,
     get_books,
     get_round,
     get_rounds,
+    get_settings,
     get_vote_cards,
     get_vote_results,
     init_db,
     reset_round,
     seed_books_if_empty,
     seed_if_empty,
+    set_setting,
     update_book,
+    update_round_label,
     upsert_book_vote,
 )
 
@@ -120,6 +128,8 @@ class VoteSubmitRequest(BaseModel):
 
 @app.post("/vote/submit")
 async def submit_vote(payload: VoteSubmitRequest, request: Request):
+    if get_settings().get("voting_open") != "1":
+        raise HTTPException(status_code=403, detail="Voting is closed.")
     voter_name = payload.display_name.strip()
     if not voter_name:
         raise HTTPException(status_code=400, detail="Name is required.")
@@ -230,6 +240,8 @@ async def list_suggestions():
 
 @app.post("/vote/suggest")
 async def suggest_book(payload: SuggestRequest):
+    if get_settings().get("suggestions_open") != "1":
+        raise HTTPException(status_code=403, detail="Suggestions are closed.")
     title = payload.title.strip()
     author = payload.author.strip()
     if not title or not author:
@@ -313,13 +325,37 @@ async def admin_check(password: str = Query(...)):
 
 
 @app.post("/vote/reset")
-async def reset_vote(password: str = Query(...)):
+async def reset_vote(password: str = Query(...), archive: bool = Query(True)):
     _require_password(password)
-    summary = reset_round()
+    summary = reset_round(archive=archive)
     if not summary.get("success"):
         raise HTTPException(status_code=500, detail="Reset failed.")
-    logger.info(f"Round reset: {summary}")
+    logger.info(f"Round reset (archive={archive}): {summary}")
     return summary
+
+
+@app.get("/vote/settings")
+async def vote_settings():
+    """Public — Vote/Suggest tabs read this to reflect open/closed state."""
+    return get_settings()
+
+
+class SettingRequest(BaseModel):
+    key: str
+    value: str
+
+
+@app.post("/vote/settings")
+async def update_setting(payload: SettingRequest, password: str = Query(...)):
+    _require_password(password)
+    if payload.key not in ("voting_open", "suggestions_open"):
+        raise HTTPException(status_code=400, detail="Unknown setting.")
+    if payload.value not in ("0", "1"):
+        raise HTTPException(status_code=400, detail="Value must be '0' or '1'.")
+    result = set_setting(payload.key, payload.value)
+    if not result.get("success"):
+        raise HTTPException(status_code=500, detail="Could not save setting.")
+    return result
 
 
 @app.get("/vote/history")
@@ -333,6 +369,27 @@ async def vote_history_detail(round_id: int):
     if snapshot is None:
         raise HTTPException(status_code=404, detail="Round not found.")
     return snapshot
+
+
+class RoundLabelRequest(BaseModel):
+    label: Optional[str] = None
+
+
+@app.put("/vote/history/{round_id}")
+async def rename_history(round_id: int, payload: RoundLabelRequest, password: str = Query(...)):
+    _require_password(password)
+    result = update_round_label(round_id, (payload.label or "").strip() or None)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Round not found.")
+    return {"success": True, "round": result}
+
+
+@app.delete("/vote/history/{round_id}")
+async def remove_history(round_id: int, password: str = Query(...)):
+    _require_password(password)
+    if not delete_round(round_id):
+        raise HTTPException(status_code=404, detail="Round not found.")
+    return {"success": True}
 
 
 # ---------------------------------------------------------------------------
