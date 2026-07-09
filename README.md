@@ -7,9 +7,19 @@ Standalone voting site for an in-person book club. Ranked-choice ballots + a wai
 ## How a round works
 
 1. Anyone suggests books on the **Suggest** tab (title + author, optional link/why). Suggestions are publicly visible but not votable.
-2. An admin (gear icon, ballot password, remembered per browser) approves suggestions onto the ballot, or adds/edits/removes books directly. Removing a book someone already voted for is blocked.
-3. Voting is open while the ballot has at least 5 active books; below that the page shows a "round is being curated" notice.
-4. **Reset & Archive Round** (admin, Results tab) snapshots the book list, every ballot, round-by-round results, winner, and cards into the **History** tab, then clears everything. The next round starts with an empty ballot; pending suggestions survive.
+2. The **Admin** tab (enter the ballot password to unlock; remembered per browser) is the control center — see below.
+3. Voting is open while the ballot has at least 5 active books AND the admin hasn't closed it; otherwise the Vote tab shows a notice.
+4. Ending a round snapshots the book list, every ballot, round-by-round results, winner, and cards into the **History** tab, then clears everything. The next round starts with an empty ballot; pending suggestions survive.
+
+## Admin tab
+
+Enter the ballot password to unlock. Everything is in one place:
+- **Status** — open/close voting and open/close suggestions (enforced server-side, not just in the UI).
+- **Books** — add / edit / remove books on the ballot (removing a book someone already voted for is blocked).
+- **Pending suggestions** — approve onto the ballot or reject.
+- **Votes cast** — full ballot table with per-vote delete.
+- **History** — rename or delete archived rounds.
+- **End this round** — *Archive & Reset* (snapshot to History, then clear) or *Reset without archiving* (clear only).
 
 Originally lived inside the Life project at `https://life-production-a332.up.railway.app/vote`. Extracted to its own Railway project + GitHub repo in April 2026 to decouple from personal systems. The old URL now redirects here.
 
@@ -53,9 +63,13 @@ uvicorn main:app --reload --port 8000
 | DELETE | `/vote/books/{id}?password=…` | password (remove book/suggestion; 409 if voted on) |
 | POST | `/vote/books/{id}/approve?password=…` | password (suggestion → ballot) |
 | POST | `/vote/admin/check?password=…` | password (UI admin unlock) |
-| POST | `/vote/reset?password=…` | password (archive round + clear) |
+| GET | `/vote/settings` | — (voting_open / suggestions_open) |
+| POST | `/vote/settings?password=…` | password (set voting_open / suggestions_open) |
+| POST | `/vote/reset?password=…&archive=true\|false` | password (close round; archive optional) |
 | GET | `/vote/history` | — (past round summaries) |
 | GET | `/vote/history/{id}` | — (full frozen snapshot) |
+| PUT | `/vote/history/{id}?password=…` | password (rename a round) |
+| DELETE | `/vote/history/{id}?password=…` | password (delete a round) |
 | GET | `/vote/cards` | — |
 | POST | `/vote/cards` | — |
 | DELETE | `/vote/cards/{id}` | — |
