@@ -700,7 +700,7 @@ _BOOK_VOTE_BODY = """
 <!-- Tabs -->
 <div class="tabs">
   <button class="tab-btn active" data-tab="vote">Vote</button>
-  <button class="tab-btn" data-tab="suggest">Suggest</button>
+  <button class="tab-btn" id="suggestTabBtn" data-tab="suggest">Suggest</button>
   <button class="tab-btn" data-tab="results">Results</button>
   <button class="tab-btn" data-tab="history">History</button>
   <button class="tab-btn tab-admin-btn" data-tab="admin">Admin</button>
@@ -904,14 +904,20 @@ _BOOK_VOTE_BODY = """
     applyGating();
   }
 
-  // Reflect open/closed state on the Vote and Suggest tabs.
+  // Reflect open/closed state across tabs.
   function applyGating() {
-    const votingClosed = !votingOpen();
-    document.getElementById("votingClosedNotice").style.display = votingClosed ? "" : "none";
     const sgClosed = !suggestionsOpen();
-    document.getElementById("suggestClosedNotice").style.display = sgClosed ? "" : "none";
+    // When suggestions are closed the whole Suggest tab disappears.
+    const sgBtn = document.getElementById("suggestTabBtn");
+    sgBtn.style.display = sgClosed ? "none" : "";
+    if (sgClosed && document.getElementById("tab-suggest").classList.contains("active")) {
+      document.querySelector('.tab-btn[data-tab="vote"]').click();
+    }
     document.getElementById("suggestFormBlock").style.display = sgClosed ? "none" : "";
-    render();
+    // The "suggest a book" shortcut in the curation notice only makes sense when open.
+    const curBtn = document.getElementById("curationSuggestBtn");
+    if (curBtn) curBtn.style.display = sgClosed ? "none" : "";
+    render();  // render() manages the Vote tab's voting-closed / curation notices
   }
 
   async function loadBooks() {
