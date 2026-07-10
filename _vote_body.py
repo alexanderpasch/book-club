@@ -188,10 +188,12 @@ _BOOK_VOTE_BODY = """
   .book-item {
     display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
     background: var(--panel); border: 1px solid var(--border);
-    border-radius: 14px; padding: 16px 18px;
+    border-radius: 14px; padding: 16px 18px 16px 22px;
     transition: border-color .2s, background .2s, box-shadow .2s, transform .15s;
-    cursor: default;
+    cursor: default; position: relative; overflow: hidden;
   }
+  /* Colored spine — book identity, like a shelf. Set inline per book. */
+  .book-spine { position: absolute; left: 0; top: 0; bottom: 0; width: 6px; }
   .book-item:hover { box-shadow: 0 3px 14px rgba(44, 24, 16, 0.06); transform: translateY(-1px); }
   .book-item.rank-1 { border-color: #b8860b; background: rgba(184,134,11,.06); box-shadow: 0 3px 16px rgba(184,134,11,.1); }
   .book-item.rank-2 { border-color: #8b8682; background: rgba(139,134,130,.05); }
@@ -694,6 +696,14 @@ _BOOK_VOTE_BODY = """
     font-family: 'Libre Baskerville', Georgia, serif;
   }
   .history-detail { margin-top: 12px; }
+
+  /* Status chips (admin) */
+  .chip {
+    display: inline-block; font-size: 11px; font-weight: 700; font-style: normal;
+    padding: 3px 12px; border-radius: 999px; letter-spacing: .02em;
+  }
+  .chip.open { color: #3f7a4b; background: rgba(63,122,75,.10); border: 1px solid rgba(63,122,75,.28); }
+  .chip.closed { color: #b23a34; background: rgba(178,58,52,.09); border: 1px solid rgba(178,58,52,.28); }
 </style>
 
 <div class="vote-content-area">
@@ -884,6 +894,21 @@ _BOOK_VOTE_BODY = """
   var BOOKS = [];
   var MIN_BOOKS = 5;  // 4 ranks + a veto need at least this many candidates
 
+  // Muted vintage-cloth spine colors, assigned by book id so a title keeps its
+  // color across reloads and the per-visitor shuffle. {spine, badge bg, badge fg}
+  var SPINES = [
+    { s:"#b5533f", bg:"rgba(181,83,63,.13)",  fg:"#8f3a2a" },
+    { s:"#bf8a2e", bg:"rgba(191,138,46,.15)", fg:"#7a5810" },
+    { s:"#6f7a4f", bg:"rgba(111,122,79,.16)", fg:"#4c5636" },
+    { s:"#2f6f6a", bg:"rgba(47,111,106,.15)", fg:"#215049" },
+    { s:"#4a5f8a", bg:"rgba(74,95,138,.15)",  fg:"#3a4a70" },
+    { s:"#7a4258", bg:"rgba(122,66,88,.15)",  fg:"#5c2f42" },
+  ];
+  function spineFor(book) {
+    var id = (book && typeof book.id === "number") ? book.id : 0;
+    return SPINES[((id % SPINES.length) + SPINES.length) % SPINES.length];
+  }
+
   // Site state (voting/suggestions open) — public, reflected across tabs.
   var SETTINGS = { voting_open: "1", suggestions_open: "1" };
 
@@ -1031,8 +1056,12 @@ _BOOK_VOTE_BODY = """
       const vetoActive = isVetoed ? "active-veto" : "";
       btns += '<button class="' + vetoActive + '" data-book="' + i + '" data-action="veto">Veto</button>';
       const badgeClass = badge ? "book-badge ranked-badge" : "book-badge";
+      const sp = spineFor(b);
+      // Tint the plain number badge to match the spine; ranked/veto badges keep their state color.
+      const badgeStyle = badge ? "" : ' style="background:' + sp.bg + ';color:' + sp.fg + '"';
       return '<li class="' + cls + '">'
-        + '<div class="' + badgeClass + '">' + (badge || (i + 1)) + '</div>'
+        + '<div class="book-spine" style="background:' + sp.s + '"></div>'
+        + '<div class="' + badgeClass + '"' + badgeStyle + '>' + (badge || (i + 1)) + '</div>'
         + '<div class="book-info">'
         +   '<div class="book-title">' + _escHtml(b.title) + '</div>'
         +   '<div class="book-author">' + _escHtml(b.author) + '</div>'
@@ -1774,13 +1803,16 @@ _BOOK_VOTE_BODY = """
   // --- Admin: status toggles ---
   function renderAdminStatus() {
     const vOpen = votingOpen(), sOpen = suggestionsOpen();
+    const chip = (open, openText, closedText) => open
+      ? '<span class="chip open">Open</span> ' + openText
+      : '<span class="chip closed">Closed</span> ' + closedText;
     const vl = document.getElementById("votingStateLabel");
-    vl.textContent = vOpen ? "Open \\u2014 people can vote" : "Closed";
-    vl.className = "admin-toggle-sub " + (vOpen ? "open" : "closed");
+    vl.className = "admin-toggle-sub";
+    vl.innerHTML = chip(vOpen, "people can vote", "voting is paused");
     document.getElementById("votingToggle").textContent = vOpen ? "Close voting" : "Open voting";
     const sl = document.getElementById("suggestStateLabel");
-    sl.textContent = sOpen ? "Open \\u2014 people can suggest" : "Closed";
-    sl.className = "admin-toggle-sub " + (sOpen ? "open" : "closed");
+    sl.className = "admin-toggle-sub";
+    sl.innerHTML = chip(sOpen, "people can suggest", "Suggest tab hidden");
     document.getElementById("suggestToggle").textContent = sOpen ? "Close suggestions" : "Open suggestions";
   }
 
@@ -1818,8 +1850,10 @@ _BOOK_VOTE_BODY = """
       return;
     }
     list.innerHTML = BOOKS.map(function(b, i) {
+      const sp = spineFor(b);
       return '<li class="book-item">'
-        + '<div class="book-badge">' + (i + 1) + '</div>'
+        + '<div class="book-spine" style="background:' + sp.s + '"></div>'
+        + '<div class="book-badge" style="background:' + sp.bg + ';color:' + sp.fg + '">' + (i + 1) + '</div>'
         + '<div class="book-info">'
         +   '<div class="book-title">' + _escHtml(b.title) + '</div>'
         +   '<div class="book-author">' + _escHtml(b.author) + (b.pages ? ' &middot; ' + b.pages + ' pages' : '') + '</div>'
