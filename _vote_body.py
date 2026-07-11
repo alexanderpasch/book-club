@@ -718,10 +718,6 @@ _BOOK_VOTE_BODY = """
 
 <!-- Vote tab -->
 <div class="tab-panel active" id="tab-vote">
-  <div class="countdown-block complete" id="countdownBlock">
-    <span class="countdown-icon">&#10003;</span>
-    <span class="countdown-text" id="countdownText">Voting Complete. See results!</span>
-  </div>
   <div class="curation-notice" id="curationNotice" style="display:none">
     <div class="curation-title">The next round is being curated</div>
     <p>Not enough books on the ballot yet &mdash; voting opens once there are at least five.</p>
@@ -1031,7 +1027,6 @@ _BOOK_VOTE_BODY = """
     // Vote tab visibility: closed (admin) > curation (too few) > open ballot.
     document.getElementById("votingClosedNotice").style.display = closed ? "" : "none";
     document.getElementById("curationNotice").style.display = (tooFew && !closed) ? "" : "none";
-    document.getElementById("countdownBlock").style.display = canVote ? "" : "none";
     document.querySelector("#tab-vote .name-block").style.display = canVote ? "" : "none";
     document.querySelector("#tab-vote .vote-summary").style.display = canVote ? "" : "none";
 
