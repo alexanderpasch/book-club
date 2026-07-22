@@ -232,7 +232,7 @@ _BOOK_VOTE_BODY = """
     font-size: 12.5px; color: #6b5744; margin-top: 6px; line-height: 1.55;
     max-height: 0; overflow: hidden; transition: max-height .3s ease;
   }
-  .book-desc.open { max-height: 160px; }
+  .book-desc.open { max-height: 1200px; }
   .book-link {
     display: inline-block; margin-top: 5px; font-size: 11px; color: var(--accent);
     text-decoration: none; font-weight: 600;
@@ -263,6 +263,11 @@ _BOOK_VOTE_BODY = """
   /* Mobile layout */
   @media (max-width: 600px) {
     .vote-subtitle { font-size: 0.95rem; }
+    /* Let the tab row scroll horizontally so Admin stays reachable */
+    .tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tab-btn { padding: 12px 16px; flex-shrink: 0; white-space: nowrap; }
+    .tab-admin-btn { margin-left: 0; }
     .name-block { padding: 18px 16px; }
     .book-item { padding: 12px 12px; gap: 8px; flex-wrap: wrap; align-items: flex-start; }
     .book-badge { min-width: 34px; height: 34px; font-size: 16px; }
